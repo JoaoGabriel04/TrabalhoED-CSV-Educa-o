@@ -1,8 +1,13 @@
 import csv
 import os
+import datetime
 
 NOME_ARQUIVO = "student-mat.csv"
 SEPARADOR = ";"
+
+# =============================================================
+# MÓDULO 1 e 2 — IMPORTAÇÃO E VALIDAÇÃO DE DADOS
+# =============================================================
 
 def importar_csv(caminho_arquivo=NOME_ARQUIVO, separador=SEPARADOR):
     cabecalho = []
@@ -248,9 +253,88 @@ def gerar_eda(dados):
     return "\n".join(linhas)
 
 
+def gerar_relatorio(dados, info):
+    sep = "=" * 50
+    linhas = []
+
+    linhas.append(sep)
+    linhas.append("   RELATÓRIO FINAL — DASHBOARD ESTATÍSTICO")
+    linhas.append(sep)
+    linhas.append(f"Disciplina  : {info['disciplina']}")
+    linhas.append(f"Grupo/Alunos: {info['grupo']}")
+    linhas.append(f"Data        : {info['data']}")
+    linhas.append(f"Dataset     : student-mat.csv | {len(dados)} registros | {len(dados[0])} colunas")
+    linhas.append(f"Gerado em   : {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
+    linhas.append(sep)
+
+    linhas.append("\n--- 1. ESTATÍSTICAS GERAIS DAS NOTAS ---")
+    for campo in ["G1", "G2", "G3"]:
+        media = calcular_media(dados, campo)
+        maximo = calcular_maximo(dados, campo)
+        minimo = calcular_minimo(dados, campo)
+        soma = calcular_soma(dados, campo)
+        linhas.append(
+            f"  {campo} | Média: {media:.2f}  Máx: {maximo}  Mín: {minimo}  Soma: {soma}"
+        )
+
+    linhas.append("\n--- 2. DISTRIBUIÇÕES CATEGÓRICAS ---")
+    for campo in ["school", "sex", "address", "famsize", "Pstatus", "higher"]:
+        freq = calcular_frequencia(dados, campo)
+        pct = calcular_percentual(dados, campo)
+        partes = "  ".join(
+            f"{k}: {freq[k]} ({pct[k]:.1f}%)" for k in sorted(freq.keys(), key=str)
+        )
+        linhas.append(f"  [{campo}]  {partes}")
+
+    linhas.append("\n--- 3. RANKINGS ---")
+    linhas.append("  Top 10 por G3 (maior → menor):")
+    for i, r in enumerate(gerar_ranking(dados, "G3", top_n=10, crescente=False), 1):
+        linhas.append(
+            f"    {i:>2}. Escola={r['school']}  Sexo={r['sex']}"
+            f"  G1={r['G1']}  G2={r['G2']}  G3={r['G3']}"
+        )
+
+    linhas.append("\n  Top 10 por absences (maior → menor):")
+    for i, r in enumerate(gerar_ranking(dados, "absences", top_n=10, crescente=False), 1):
+        linhas.append(
+            f"    {i:>2}. Escola={r['school']}  Sexo={r['sex']}"
+            f"  Faltas={r['absences']}  G3={r['G3']}"
+        )
+
+    linhas.append("\n--- 4. ANÁLISE EXPLORATÓRIA COMPLETA (EDA) ---")
+    linhas.append(gerar_eda(dados))
+
+    linhas.append("\n" + sep)
+    linhas.append("   FIM DO RELATÓRIO")
+    linhas.append(sep)
+
+    return "\n".join(linhas)
+
+
 # =============================================================
 # MENUS
-# =============================================================
+# =============================================================#
+
+LEGENDAS_CAMPOS = {
+    "school":    "GP / MS",
+    "sex":       "F / M",
+    "address":   "U / R",
+    "famsize":   "LE3 / GT3",
+    "Pstatus":   "T / A",
+    "Mjob":      "teacher / health / services / at_home / other",
+    "Fjob":      "teacher / health / services / at_home / other",
+    "reason":    "home / school / course / other",
+    "guardian":  "mother / father / other",
+    "schoolsup": "yes / no",
+    "famsup":    "yes / no",
+    "paid":      "yes / no",
+    "activities":"yes / no",
+    "nursery":   "yes / no",
+    "higher":    "yes / no",
+    "internet":  "yes / no",
+    "romantic":  "yes / no",
+}
+
 
 def resolver_campo(dados, campo):
     for c in dados[0].keys():
@@ -293,7 +377,9 @@ def menu_consultas(dados):
                 print("[ERRO] Campo não encontrado.")
                 input("\nPressione Enter para continuar...")
                 continue
-            valor = input("Valor: ").strip()
+            legenda = LEGENDAS_CAMPOS.get(campo, "")
+            prompt_valor = f"Valor ({legenda}): " if legenda else "Valor: "
+            valor = input(prompt_valor).strip()
             resultado = buscar_por_campo(dados, campo, valor)
             exibir_registros(resultado)
             input("\nPressione Enter para continuar...")
@@ -314,7 +400,9 @@ def menu_consultas(dados):
                 print("        Use '=' para encontrar registros com valor exato.")
                 input("\nPressione Enter para continuar...")
                 continue
-            valor = input("Valor: ").strip()
+            legenda = LEGENDAS_CAMPOS.get(campo, "")
+            prompt_valor = f"Valor ({legenda}): " if legenda else "Valor: "
+            valor = input(prompt_valor).strip()
             resultado = filtrar_por_condicao(dados, campo, operador, valor)
             exibir_registros(resultado)
             input("\nPressione Enter para continuar...")
@@ -406,22 +494,41 @@ def menu_estatisticas(dados):
 
         elif opcao == "4":
             limpar_tela()
-            print("[a] Exibir no terminal")
-            print("[b] Salvar em arquivo TXT")
-            print("[c] Ambos")
-            sub = input("\nEscolha: ").strip().lower()
-            relatorio = gerar_eda(dados)
-            if sub in ("a", "c"):
-                limpar_tela()
-                print(relatorio)
-            if sub in ("b", "c"):
-                with open("eda_relatorio.txt", "w", encoding="utf-8") as f:
-                    f.write(relatorio)
-                print("\n[OK] Relatório salvo em 'eda_relatorio.txt'.")
+            print(gerar_eda(dados))
             input("\nPressione Enter para continuar...")
 
         elif opcao == "0":
             break
+
+
+def menu_relatorio(dados):
+    limpar_tela()
+    print("=" * 50)
+    print("   GERAR RELATÓRIO TXT")
+    print("=" * 50)
+    print()
+    disciplina = input("Disciplina: ").strip()
+    grupo = input("Grupo/Alunos: ").strip()
+    data = input("Data (ex: 25/06/2026): ").strip()
+
+    info = {"disciplina": disciplina, "grupo": grupo, "data": data}
+    relatorio = gerar_relatorio(dados, info)
+
+    limpar_tela()
+    print("Prévia do relatório (primeiras 20 linhas):\n")
+    for linha in relatorio.split("\n")[:20]:
+        print(linha)
+    print("\n[...]\n")
+
+    nome = input("Nome do arquivo para salvar: ").strip() or "relatorio_final"
+    if not nome.endswith(".txt"):
+        nome += ".txt"
+
+    with open(nome, "w", encoding="utf-8") as f:
+        f.write(relatorio)
+
+    print(f"\n[OK] Relatório salvo em '{nome}'.")
+    input("\nPressione Enter para continuar...")
 
 
 def menu_principal(dados):
@@ -434,6 +541,7 @@ def menu_principal(dados):
         print()
         print("[1] Consultas")
         print("[2] Estatísticas e EDA")
+        print("[3] Gerar Relatório TXT")
         print("[0] Sair")
         opcao = input("\nEscolha: ").strip()
 
@@ -441,6 +549,8 @@ def menu_principal(dados):
             menu_consultas(dados)
         elif opcao == "2":
             menu_estatisticas(dados)
+        elif opcao == "3":
+            menu_relatorio(dados)
         elif opcao == "0":
             limpar_tela()
             print("Encerrando. Até logo!")
